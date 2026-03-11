@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+.installed.cfg
+lib/
+lib64/
+
+# Sanal ortam
+.venv/
+venv/
+ENV/
+env/
+
+# Yüklenen dosyalar (kişisel veri içerebilir)
+uploads/
+
+# Excel dosyaları (kişisel veri içerebilir)
+*.xlsx
+*.xls
+*.csv
+
+# Dışa aktarılan çıktılar
+*.png
+*.pdf
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Log
+*.log

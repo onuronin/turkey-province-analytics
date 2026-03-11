@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Türkiye Proje Haritası</title>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0a0f24;
+      color: #e0e6f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #0d1b3e 0%, #1a2a5e 100%);
+      border-bottom: 1px solid #2a3f7e;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.5);
+    }
+    header .logo {
+      font-size: 28px;
+    }
+    header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #7eb8f7;
+      letter-spacing: 0.5px;
+    }
+    header p {
+      font-size: 13px;
+      color: #8898b8;
+      margin-top: 2px;
+    }
+
+    /* ── Layout ── */
+    .main-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 320px;
+      min-width: 280px;
+      background: #0d1525;
+      border-right: 1px solid #1e2f55;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      overflow-y: auto;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: #5a7ab5;
+      margin-bottom: 10px;
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed #2a4a8a;
+      border-radius: 12px;
+      padding: 28px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      background: #0f1a35;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: #4a8af4;
+      background: #131e40;
+    }
+    .drop-zone .icon { font-size: 38px; margin-bottom: 8px; }
+    .drop-zone .hint { font-size: 13px; color: #6a88b8; margin-top: 6px; }
+    .drop-zone .filename {
+      font-size: 13px;
+      color: #5af0a0;
+      margin-top: 8px;
+      word-break: break-all;
+    }
+    #fileInput { display: none; }
+
+    /* Column selectors */
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 13px; color: #8898b8; }
+    .form-group select {
+      background: #0f1a35;
+      border: 1px solid #2a3f7e;
+      border-radius: 8px;
+      color: #e0e6f0;
+      padding: 9px 12px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      appearance: none;
+      cursor: pointer;
+    }
+    .form-group select:focus { border-color: #4a8af4; }
+    .form-group select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Button */
+    .btn-primary {
+      background: linear-gradient(135deg, #1565c0, #0d47a1);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 13px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      letter-spacing: 0.3px;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #1976d2, #1565c0);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(21,101,192,0.5);
+    }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stat-card {
+      background: #0f1a35;
+      border: 1px solid #1e2f55;
+      border-radius: 10px;
+      padding: 14px 12px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 26px;
+      font-weight: 800;
+      color: #4a8af4;
+    }
+    .stat-label { font-size: 11px; color: #6a88b8; margin-top: 3px; }
+
+    /* Preview table */
+    .preview-wrap {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid #1e2f55;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    thead th {
+      background: #111e40;
+      color: #7eb8f7;
+      padding: 8px 10px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    tbody tr:nth-child(even) { background: #0d1525; }
+    tbody td { padding: 7px 10px; color: #c0cce0; }
+
+    /* ── Map area ── */
+    .map-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #map-container {
+      width: 100%;
+      height: 100%;
+      display: none;
+    }
+
+    .empty-state {
+      text-align: center;
+      opacity: 0.5;
+    }
+    .empty-state .big-icon { font-size: 80px; margin-bottom: 16px; }
+    .empty-state h2 { font-size: 22px; color: #5a7ab5; }
+    .empty-state p { font-size: 14px; color: #4a6080; margin-top: 6px; }
+
+    /* Loading overlay */
+    #loading {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(10,15,36,0.85);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      gap: 16px;
+    }
+    #loading.active { display: flex; }
+    .spinner {
+      width: 52px;
+      height: 52px;
+      border: 4px solid #1e2f55;
+      border-top-color: #4a8af4;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { font-size: 15px; color: #7eb8f7; }
+
+    /* Toast */
+    #toast {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #c0392b;
+      color: white;
+      padding: 14px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      z-index: 999;
+      max-width: 340px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      animation: slideUp 0.3s ease;
+    }
+    #toast.success { background: #1a6e3a; }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* Color scale picker */
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .color-group-title {
+      font-size: 10px;
+      color: #4a6a9a;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin: 6px 0 4px;
+      grid-column: 1 / -1;
+    }
+    .color-swatch {
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    .color-swatch:hover { transform: scale(1.06); }
+    .color-swatch.active { border-color: #4a8af4; }
+    .color-swatch .gradient {
+      height: 36px;
+      width: 100%;
+    }
+    .color-swatch .swatch-label {
+      font-size: 10px;
+      text-align: center;
+      padding: 3px 2px;
+      background: #0f1a35;
+      color: #8898b8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Toggle switch */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0f1a35;
+      border: 1px solid #1e2f55;
+      border-radius: 8px;
+      padding: 9px 12px;
+      cursor: pointer;
+    }
+    .toggle-row label {
+      font-size: 13px;
+      color: #c0cce0;
+      cursor: pointer;
+    }
+    .toggle {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: #1e2f55;
+      border-radius: 20px;
+      transition: 0.25s;
+    }
+    .toggle-slider::before {
+      content: "";
+      position: absolute;
+      width: 14px; height: 14px;
+      left: 3px; bottom: 3px;
+      background: #8898b8;
+      border-radius: 50%;
+      transition: 0.25s;
+    }
+    .toggle input:checked + .toggle-slider { background: #1565c0; }
+    .toggle input:checked + .toggle-slider::before {
+      transform: translateX(16px);
+      background: white;
+    }
+
+    /* Label mode buttons */
+    .label-opts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .label-btn {
+      background: #0f1a35;
+      border: 1px solid #2a3f7e;
+      border-radius: 7px;
+      color: #8898b8;
+      font-size: 11.5px;
+      padding: 7px 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.18s;
+      line-height: 1.3;
+    }
+    .label-btn:hover { border-color: #4a8af4; color: #c0cce0; }
+    .label-btn.active {
+      background: #1a3060;
+      border-color: #4a8af4;
+      color: white;
+      font-weight: 600;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0f24; }
+    ::-webkit-scrollbar-thumb { background: #2a3f7e; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🗺️</div>
+  <div>
+    <h1>Türkiye Proje Haritası</h1>
+    <p>Excel dosyanızı yükleyin, il bazlı dağılımı interaktif haritada görün</p>
+  </div>
+</header>
+
+<div class="main-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+    <!-- Upload -->
+    <div>
+      <div class="section-title">📂 Dosya Yükle</div>
+      <div class="drop-zone" id="dropZone">
+        <div class="icon">📊</div>
+        <div><strong>Excel dosyasını sürükleyip bırakın</strong></div>
+        <div class="hint">veya tıklayarak seçin (.xlsx / .xls)</div>
+        <div class="filename" id="dropFilename"></div>
+      </div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" />
+    </div>
+
+    <!-- Column selection -->
+    <div id="colSection" style="display:none;">
+      <div class="section-title">⚙️ Sütun Seçimi</div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div class="form-group">
+          <label>İl / Şehir sütunu</label>
+          <select id="ilSelect"><option value="">-- Seçin --</option></select>
+        </div>
+        <div class="form-group">
+          <label>Değer / Proje Sayısı sütunu</label>
+          <select id="sayiSelect"><option value="">-- Seçin --</option></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div id="previewSection" style="display:none;">
+      <div class="section-title">👁️ Önizleme (ilk 5 satır)</div>
+      <div class="preview-wrap">
+        <table id="previewTable"></table>
+      </div>
+    </div>
+
+    <!-- Color scale picker -->
+    <div id="colorSection">
+      <div class="section-title">🎨 Renk Skalası</div>
+      <div class="color-grid" id="colorGrid">
+
+        <div class="color-group-title">🔵 Mavi Tonlar</div>
+        <div class="color-swatch" data-scale="blue_light">
+          <div class="gradient" style="background: linear-gradient(to right, #e3f2fd, #90caf9, #1976d2, #0d47a1)"></div>
+          <div class="swatch-label">Açık Mavi</div>
+        </div>
+        <div class="color-swatch" data-scale="blue_dark">
+          <div class="gradient" style="background: linear-gradient(to right, #050d1a, #0d47a1, #42a5f5, #e3f2fd)"></div>
+          <div class="swatch-label">Koyu Mavi</div>
+        </div>
+        <div class="color-swatch" data-scale="blue_navy">
+          <div class="gradient" style="background: linear-gradient(to right, #001233, #023e8a, #0096c7, #ade8f4)"></div>
+          <div class="swatch-label">Lacivert</div>
+        </div>
+        <div class="color-swatch" data-scale="blue_steel">
+          <div class="gradient" style="background: linear-gradient(to right, #0d1b2a, #1b4965, #5fa8d3, #cae9ff)"></div>
+          <div class="swatch-label">Celik Mavi</div>
+        </div>
+
+        <div class="color-group-title">🌈 Diğer Temalar</div>
+        <div class="color-swatch active" data-scale="blue_orange">
+          <div class="gradient" style="background: linear-gradient(to right, #1e2a4a, #1565c0, #00acc1, #ffd740, #ff6d00)"></div>
+          <div class="swatch-label">Mavi → Turuncu</div>
+        </div>
+        <div class="color-swatch" data-scale="green">
+          <div class="gradient" style="background: linear-gradient(to right, #0d1f10, #2e7d32, #66bb6a, #ccff90)"></div>
+          <div class="swatch-label">Yeşil</div>
+        </div>
+        <div class="color-swatch" data-scale="red">
+          <div class="gradient" style="background: linear-gradient(to right, #1a0a0a, #b71c1c, #ef5350, #ffcdd2)"></div>
+          <div class="swatch-label">Kırmızı</div>
+        </div>
+        <div class="color-swatch" data-scale="purple">
+          <div class="gradient" style="background: linear-gradient(to right, #12001f, #6a1b9a, #ce93d8, #f3e5f5)"></div>
+          <div class="swatch-label">Mor</div>
+        </div>
+        <div class="color-swatch" data-scale="thermal">
+          <div class="gradient" style="background: linear-gradient(to right, #04002c, #4b0082, #c2185b, #ff6f00, #fff176)"></div>
+          <div class="swatch-label">Termal</div>
+        </div>
+        <div class="color-swatch" data-scale="teal">
+          <div class="gradient" style="background: linear-gradient(to right, #001a1f, #00695c, #26c6da, #e0f7fa)"></div>
+          <div class="swatch-label">Turkuaz</div>
+        </div>
+        <div class="color-swatch" data-scale="gold">
+          <div class="gradient" style="background: linear-gradient(to right, #1a1000, #bf6c00, #ffb300, #fff8e1)"></div>
+          <div class="swatch-label">Altın</div>
+        </div>
+        <div class="color-swatch" data-scale="ice_fire">
+          <div class="gradient" style="background: linear-gradient(to right, #313695, #74add1, #ffffbf, #f46d43, #a50026)"></div>
+          <div class="swatch-label">Buz → Ateş</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Veri Etiketleri -->
+    <div>
+      <div class="section-title">🏷️ Veri Etiketleri</div>
+      <div class="label-opts" id="labelOpts">
+        <button class="label-btn active" data-mode="none">❌ Gösterme</button>
+        <button class="label-btn" data-mode="name_count">🏷️ İl Adı + Sayı</button>
+        <button class="label-btn" data-mode="count_only">🔢 Sadece Sayı</button>
+        <button class="label-btn" data-mode="name_only">📍 Sadece İl</button>
+        <button class="label-btn" data-mode="scaled" style="grid-column:1/-1">📏 Sayıya Göre Boyut (Dinamik)</button>
+      </div>
+      <div class="toggle-row" style="margin-top:8px">
+        <label for="allLabelsToggle">📍 Veri olmayan iller de görünsün</label>
+        <label class="toggle">
+          <input type="checkbox" id="allLabelsToggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Lejant -->
+    <div>
+      <div class="section-title">🗒️ Lejant &amp; Çizelge</div>
+
+      <!-- Lejant toggle -->
+      <div class="toggle-row">
+        <label for="legendToggle">🗒️ Renk skalası lejantını göster</label>
+        <label class="toggle">
+          <input type="checkbox" id="legendToggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <!-- Colorbar (ısı haritasi cetveli) toggle -->
+      <div class="toggle-row" style="margin-top:6px;">
+        <label for="colorbarToggle">🌡️ ısı haritasi çizelgesini göster</label>
+        <label class="toggle">
+          <input type="checkbox" id="colorbarToggle" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <!-- Lejant metin rengi -->
+      <div id="legendColorOpts" style="margin-top:10px;">
+        <div style="font-size:11px; color:#7a9cc0; margin-bottom:5px; font-weight:600;">🔡 Lejant Metin Rengi</div>
+        <div id="legTextSwatches" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;">
+          <div class="leg-txt-swatch" data-color="" title="Metin rengiyle aynı"
+               style="background:linear-gradient(135deg,#fff,#888); width:28px; height:28px; border-radius:5px; cursor:pointer; border:2px solid #a0c4ff; box-sizing:border-box; display:flex; align-items:center; justify-content:center; font-size:10px; color:#000;">↑</div>
+          <div class="leg-txt-swatch" data-color="#ffffff" title="Beyaz"
+               style="background:#ffffff; width:28px; height:28px; border-radius:5px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+          <div class="leg-txt-swatch" data-color="#000000" title="Siyah"
+               style="background:#000000; width:28px; height:28px; border-radius:5px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+          <div class="leg-txt-swatch" data-color="#ffd740" title="Sarı"
+               style="background:#ffd740; width:28px; height:28px; border-radius:5px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+          <div class="leg-txt-swatch" data-color="#a0c4ff" title="Açık Mavi"
+               style="background:#a0c4ff; width:28px; height:28px; border-radius:5px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+          <label title="Özel renk" style="display:flex; align-items:center; justify-content:center;
+                 width:28px; height:28px; border-radius:5px; cursor:pointer;
+                 background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red);
+                 border:2px solid transparent; box-sizing:border-box; overflow:hidden;">
+            <input type="color" id="legTextCustom" value="#ffffff"
+                   style="opacity:0; width:0; height:0; position:absolute;" />
+            <span style="font-size:12px; pointer-events:none;">+</span>
+          </label>
+        </div>
+
+        <!-- Lejant arka plan rengi -->
+        <div style="font-size:11px; color:#7a9cc0; margin-bottom:5px; margin-top:8px; font-weight:600;">🎨 Lejant Arka Plan</div>
+        <div id="legBgSwatches" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;">
+          <div class="leg-bg-swatch" data-color="" title="Varsayılan"
+               style="background:linear-gradient(135deg,#080f2d,#1e2a4a); width:28px; height:28px; border-radius:5px; cursor:pointer; border:2px solid #a0c4ff; box-sizing:border-box;"></div>
+          <div class="leg-bg-swatch" data-color="rgba(0,0,0,0.85)" title="Siyah"
+               style="background:#000; width:28px; height:28px; border-radius:5px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+          <div class="leg-bg-swatch" data-color="rgba(255,255,255,0.90)" title="Beyaz"
+               style="background:#fff; width:28px; height:28px; border-radius:5px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+          <div class="leg-bg-swatch" data-color="rgba(30,42,74,0.95)" title="Lacivert"
+               style="background:#1e2a4a; width:28px; height:28px; border-radius:5px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+          <div class="leg-bg-swatch" data-color="rgba(0,0,0,0)" title="Şeffaf"
+               style="background:repeating-conic-gradient(#888 0% 25%,#ccc 0% 50%) 0 0/10px 10px;
+                      width:28px; height:28px; border-radius:5px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+          <label title="Özel renk" style="display:flex; align-items:center; justify-content:center;
+                 width:28px; height:28px; border-radius:5px; cursor:pointer;
+                 background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red);
+                 border:2px solid transparent; box-sizing:border-box; overflow:hidden;">
+            <input type="color" id="legBgCustom" value="#080f2d"
+                   style="opacity:0; width:0; height:0; position:absolute;" />
+            <span style="font-size:12px; pointer-events:none;">+</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arka Plan Rengi -->
+    <div>
+      <div class="section-title">🎨 Arka Plan Rengi</div>
+      <div id="bgColorSwatches" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+        <div class="bg-swatch active" data-color="#0f1629" title="Koyu Lacivert"
+             style="background:#0f1629; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <div class="bg-swatch" data-color="#000000" title="Siyah"
+             style="background:#000000; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <div class="bg-swatch" data-color="#1a1a2e" title="Gece Mavisi"
+             style="background:#1a1a2e; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <div class="bg-swatch" data-color="#1c1c1c" title="Koyu Gri"
+             style="background:#1c1c1c; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <div class="bg-swatch" data-color="#2d2d2d" title="Orta Gri"
+             style="background:#2d2d2d; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <div class="bg-swatch" data-color="#ffffff" title="Beyaz"
+             style="background:#ffffff; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <div class="bg-swatch" data-color="#f0f4f8" title="Açık Gri"
+             style="background:#f0f4f8; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <!-- Şeffaf seçeneği -->
+        <div class="bg-swatch" data-color="transparent" title="Renk Yok (Şeffaf)"
+             style="background:repeating-conic-gradient(#555 0% 25%,#888 0% 50%) 0 0/12px 12px;
+                    width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <label title="Özel renk seç" style="display:flex; align-items:center; justify-content:center;
+               width:32px; height:32px; border-radius:6px; cursor:pointer;
+               background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+               border:2px solid transparent; box-sizing:border-box; overflow:hidden;">
+          <input type="color" id="bgColorCustom" value="#0f1629"
+                 style="opacity:0; width:0; height:0; position:absolute;" />
+          <span style="font-size:14px; pointer-events:none;">+</span>
+        </label>
+      </div>
+      <div style="font-size:11px; color:#4a6080;">Seçili: <span id="bgColorDisplay" style="font-family:monospace; color:#a0c4ff;">#0f1629</span></div>
+    </div>
+
+    <!-- Metin Rengi -->
+    <div>
+      <div class="section-title">🔡 Metin Rengi</div>
+      <div id="textColorSwatches" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+        <div class="txt-swatch active" data-color="#ffffff" title="Beyaz"
+             style="background:#ffffff; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid #a0c4ff; box-sizing:border-box;"></div>
+        <div class="txt-swatch" data-color="#000000" title="Siyah"
+             style="background:#000000; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <div class="txt-swatch" data-color="#ffd740" title="Sarı"
+             style="background:#ffd740; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <div class="txt-swatch" data-color="#a0c4ff" title="Açık Mavi"
+             style="background:#a0c4ff; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <div class="txt-swatch" data-color="#ccff90" title="Açık Yeşil"
+             style="background:#ccff90; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <div class="txt-swatch" data-color="#ff8a80" title="Mercan"
+             style="background:#ff8a80; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <div class="txt-swatch" data-color="#333333" title="Koyu Gri"
+             style="background:#333333; width:32px; height:32px; border-radius:6px; cursor:pointer; border:2px solid transparent; box-sizing:border-box;"></div>
+        <label title="Özel renk seç" style="display:flex; align-items:center; justify-content:center;
+               width:32px; height:32px; border-radius:6px; cursor:pointer;
+               background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+               border:2px solid transparent; box-sizing:border-box; overflow:hidden;">
+          <input type="color" id="textColorCustom" value="#ffffff"
+                 style="opacity:0; width:0; height:0; position:absolute;" />
+          <span style="font-size:14px; pointer-events:none;">+</span>
+        </label>
+      </div>
+      <div style="font-size:11px; color:#4a6080;">Seçili: <span id="textColorDisplay" style="font-family:monospace; color:#a0c4ff;">#ffffff</span></div>
+    </div>
+
+    <!-- Çıktı Al -->
+    <div>
+      <div class="section-title">📥 Çıktı Al</div>
+      <div style="display:flex; gap:16px; margin-bottom:10px;">
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; color:#c8d8f0;">
+          <input type="checkbox" id="fmtPng" checked
+                 style="width:16px; height:16px; accent-color:#1e88e5; cursor:pointer;" />
+          🖼️ PNG
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; color:#c8d8f0;">
+          <input type="checkbox" id="fmtPdf"
+                 style="width:16px; height:16px; accent-color:#e53935; cursor:pointer;" />
+          📄 PDF
+        </label>
+      </div>
+      <button id="exportBtn" onclick="exportSelected()"
+              style="width:100%; padding:10px; border-radius:8px; border:none; cursor:pointer;
+                     background:linear-gradient(135deg,#1565c0,#1e88e5); color:#fff;
+                     font-size:14px; font-weight:700; transition:opacity .2s; letter-spacing:.3px;">
+        ⬇️ İndir
+      </button>
+    </div>
+
+    <!-- Generate button -->
+    <button class="btn-primary" id="generateBtn" disabled>🗺️ Haritayı Oluştur</button>
+
+    <!-- Stats -->
+    <div id="statsSection" style="display:none;">
+      <div class="section-title">📊 İstatistikler</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="statToplam">–</div>
+          <div class="stat-label">Toplam Proje</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statIl">–</div>
+          <div class="stat-label">Aktif İl</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statMax">–</div>
+          <div class="stat-label">Maks. Proje</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statOrtalama">–</div>
+          <div class="stat-label">Ortalama</div>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Map -->
+  <main class="map-area">
+    <div class="empty-state" id="emptyState">
+      <div class="big-icon">🇹🇷</div>
+      <h2>Harita Burada Görünecek</h2>
+      <p>Sol panelden Excel dosyanızı yükleyin ve "Haritayı Oluştur" butonuna tıklayın.</p>
+    </div>
+    <div id="map-container"></div>
+    <div id="loading">
+      <div class="spinner"></div>
+      <p id="loadingText">Harita oluşturuluyor...</p>
+    </div>
+  </main>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let uploadedFilename = null;
+  let currentFigure = null;
+  let selectedColorScale = "blue_orange";
+  let selectedLabelMode = "none";
+  let selectedBgColor = "#0f1629";
+  let selectedTextColor = "#ffffff";
+  let selectedLegTextColor = "";   // boş = metin rengiyle aynı
+  let selectedLegBgColor  = "";   // boş = varsayılan
+
+  // ── Background color swatches ───────────────────────────────────────────────
+  document.getElementById("bgColorSwatches").addEventListener("click", e => {
+    const sw = e.target.closest(".bg-swatch");
+    if (!sw) return;
+    selectBgColor(sw.dataset.color);
+    sw.parentElement.querySelectorAll(".bg-swatch").forEach(s => s.style.borderColor = "transparent");
+    sw.style.borderColor = "#a0c4ff";
+  });
+
+  document.getElementById("bgColorCustom").addEventListener("input", e => {
+    selectBgColor(e.target.value);
+    document.querySelectorAll(".bg-swatch").forEach(s => s.style.borderColor = "transparent");
+  });
+
+  function selectBgColor(color) {
+    selectedBgColor = color;
+    document.getElementById("bgColorDisplay").textContent = color;
+    document.getElementById("bgColorCustom").value = color;
+  }
+
+  // init: ilk swatch aktif gözüksün
+  (() => {
+    const first = document.querySelector(".bg-swatch");
+    if (first) first.style.borderColor = "#a0c4ff";
+  })();
+
+  // ── Legend text colour swatches ──────────────────────────────────────
+  document.getElementById("legTextSwatches").addEventListener("click", e => {
+    const sw = e.target.closest(".leg-txt-swatch");
+    if (!sw) return;
+    selectedLegTextColor = sw.dataset.color;
+    sw.parentElement.querySelectorAll(".leg-txt-swatch").forEach(s => s.style.borderColor = "transparent");
+    sw.style.borderColor = "#a0c4ff";
+  });
+  document.getElementById("legTextCustom").addEventListener("input", e => {
+    selectedLegTextColor = e.target.value;
+    document.querySelectorAll(".leg-txt-swatch").forEach(s => s.style.borderColor = "transparent");
+  });
+
+  // ── Legend bg colour swatches ───────────────────────────────────────
+  document.getElementById("legBgSwatches").addEventListener("click", e => {
+    const sw = e.target.closest(".leg-bg-swatch");
+    if (!sw) return;
+    selectedLegBgColor = sw.dataset.color;
+    sw.parentElement.querySelectorAll(".leg-bg-swatch").forEach(s => s.style.borderColor = "transparent");
+    sw.style.borderColor = "#a0c4ff";
+  });
+  document.getElementById("legBgCustom").addEventListener("input", e => {
+    selectedLegBgColor = e.target.value;
+    document.querySelectorAll(".leg-bg-swatch").forEach(s => s.style.borderColor = "transparent");
+  });
+
+  // ── Text color swatches ──────────────────────────────────────────────────
+  document.getElementById("textColorSwatches").addEventListener("click", e => {
+    const sw = e.target.closest(".txt-swatch");
+    if (!sw) return;
+    selectTextColor(sw.dataset.color);
+    sw.parentElement.querySelectorAll(".txt-swatch").forEach(s => s.style.borderColor = "transparent");
+    sw.style.borderColor = "#a0c4ff";
+  });
+
+  document.getElementById("textColorCustom").addEventListener("input", e => {
+    selectTextColor(e.target.value);
+    document.querySelectorAll(".txt-swatch").forEach(s => s.style.borderColor = "transparent");
+  });
+
+  function selectTextColor(color) {
+    selectedTextColor = color;
+    document.getElementById("textColorDisplay").textContent = color;
+    document.getElementById("textColorCustom").value = color;
+  }
+
+  // ── Color scale picker ──────────────────────────────────────────────────────
+  document.getElementById("colorGrid").addEventListener("click", e => {
+    const swatch = e.target.closest(".color-swatch");
+    if (!swatch) return;
+    document.querySelectorAll(".color-swatch").forEach(s => s.classList.remove("active"));
+    swatch.classList.add("active");
+    selectedColorScale = swatch.dataset.scale;
+  });
+
+  // ── Label mode picker ──────────────────────────────────────────────────
+  document.getElementById("labelOpts").addEventListener("click", e => {
+    const btn = e.target.closest(".label-btn");
+    if (!btn) return;
+    document.querySelectorAll(".label-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    selectedLabelMode = btn.dataset.mode;
+  });
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function showToast(msg, type = "error") {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.className = type === "success" ? "success" : "";
+    t.style.display = "block";
+    setTimeout(() => { t.style.display = "none"; }, 4000);
+  }
+
+  function setLoading(visible, text = "Harita oluşturuluyor...") {
+    const el = document.getElementById("loading");
+    document.getElementById("loadingText").textContent = text;
+    el.classList.toggle("active", visible);
+  }
+
+  // ── Drag & Drop ──────────────────────────────────────────────────────────────
+  const dropZone = document.getElementById("dropZone");
+  const fileInput = document.getElementById("fileInput");
+
+  dropZone.addEventListener("click", () => fileInput.click());
+
+  dropZone.addEventListener("dragover", e => {
+    e.preventDefault();
+    dropZone.classList.add("drag-over");
+  });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropZone.classList.remove("drag-over");
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files[0]) handleFile(fileInput.files[0]);
+  });
+
+  // ── Upload ───────────────────────────────────────────────────────────────────
+  async function handleFile(file) {
+    const ext = file.name.split(".").pop().toLowerCase();
+    if (!["xlsx", "xls"].includes(ext)) {
+      showToast("Sadece .xlsx ve .xls dosyaları desteklenir.");
+      return;
+    }
+
+    document.getElementById("dropFilename").textContent = file.name;
+    setLoading(true, "Dosya yükleniyor...");
+    document.getElementById("generateBtn").disabled = true;
+    document.getElementById("colSection").style.display = "none";
+    document.getElementById("previewSection").style.display = "none";
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/upload", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (!res.ok) { showToast(data.error || "Yükleme hatası."); return; }
+
+      uploadedFilename = data.filename;
+      populateSelects(data.columns, data.detected_il, data.detected_sayi);
+      renderPreview(data.preview, data.columns);
+
+      document.getElementById("colSection").style.display = "block";
+      document.getElementById("previewSection").style.display = "block";
+      document.getElementById("generateBtn").disabled = false;
+      showToast("Dosya başarıyla yüklendi!", "success");
+    } catch (e) {
+      showToast("Sunucuya bağlanılamadı: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function populateSelects(columns, detectedIl, detectedSayi) {
+    const ilSel = document.getElementById("ilSelect");
+    const sayiSel = document.getElementById("sayiSelect");
+    ilSel.innerHTML = '<option value="">-- Seçin --</option>';
+    sayiSel.innerHTML = '<option value="">-- Seçin --</option>';
+
+    columns.forEach(col => {
+      const o1 = new Option(col, col);
+      const o2 = new Option(col, col);
+      if (col === detectedIl) o1.selected = true;
+      if (col === detectedSayi) o2.selected = true;
+      ilSel.appendChild(o1);
+      sayiSel.appendChild(o2);
+    });
+  }
+
+  function renderPreview(rows, columns) {
+    const tbl = document.getElementById("previewTable");
+    let html = "<thead><tr>" + columns.map(c => `<th>${c}</th>`).join("") + "</tr></thead><tbody>";
+    rows.forEach(row => {
+      html += "<tr>" + columns.map(c => `<td>${row[c] ?? ""}</td>`).join("") + "</tr>";
+    });
+    html += "</tbody>";
+    tbl.innerHTML = html;
+  }
+
+  // ── Generate Map ─────────────────────────────────────────────────────────────
+  document.getElementById("generateBtn").addEventListener("click", async () => {
+    const ilCol = document.getElementById("ilSelect").value;
+    const sayiCol = document.getElementById("sayiSelect").value;
+
+    if (!ilCol || !sayiCol) { showToast("Lütfen her iki sütunu da seçin."); return; }
+    if (!uploadedFilename) { showToast("Önce dosya yükleyin."); return; }
+
+    setLoading(true, "Harita oluşturuluyor...");
+
+    try {
+      const res = await fetch("/map", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: uploadedFilename,
+          il_col: ilCol,
+          sayi_col: sayiCol,
+          color_scale: selectedColorScale,
+          label_mode: selectedLabelMode,
+          show_legend: document.getElementById("legendToggle").checked,
+          show_all_labels: document.getElementById("allLabelsToggle").checked,
+          bg_color: selectedBgColor,
+          text_color: selectedTextColor,
+          show_colorbar: document.getElementById("colorbarToggle").checked,
+          legend_text_color: selectedLegTextColor,
+          legend_bg_color: selectedLegBgColor,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) { showToast(data.error || "Harita oluşturulamadı."); return; }
+
+      renderMap(data.figure);
+    } catch (e) {
+      showToast("Hata: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  function renderMap(figureJson) {
+    const fig = JSON.parse(figureJson);
+    currentFigure = fig;
+
+    document.getElementById("emptyState").style.display = "none";
+    const container = document.getElementById("map-container");
+    container.style.display = "block";
+
+    Plotly.react(container, fig.data, fig.layout, {
+      responsive: true,
+      displaylogo: false,
+      modeBarButtonsToRemove: [],
+      toImageButtonOptions: { format: "png", width: 1123, height: 794, scale: 2, filename: "turkiye_proje_haritasi" },
+    });
+
+    // Stats
+    const values = fig.data[0]?.z || [];
+    const nonZero = values.filter(v => v > 0);
+    const total = nonZero.reduce((a, b) => a + b, 0);
+    document.getElementById("statToplam").textContent = total;
+    document.getElementById("statIl").textContent = nonZero.length;
+    document.getElementById("statMax").textContent = nonZero.length ? Math.max(...nonZero) : 0;
+    document.getElementById("statOrtalama").textContent =
+      nonZero.length ? (total / nonZero.length).toFixed(1) : "0";
+    document.getElementById("statsSection").style.display = "block";
+
+    showToast("Harita hazır!", "success");
+  }
+
+  // ── Export Map ────────────────────────────────────────────────────────────────
+  async function exportSelected() {
+    const pngChecked = document.getElementById("fmtPng").checked;
+    const pdfChecked = document.getElementById("fmtPdf").checked;
+    if (!pngChecked && !pdfChecked) {
+      showToast("Lütfen en az bir format seçin (PNG veya PDF).");
+      return;
+    }
+    if (pngChecked) await exportMap("png");
+    if (pdfChecked) await exportMap("pdf");
+  }
+
+  async function exportMap(fmt) {
+    const ilCol = document.getElementById("ilSelect").value;
+    const sayiCol = document.getElementById("sayiSelect").value;
+    if (!uploadedFilename || !ilCol || !sayiCol) {
+      showToast("Haritayı önce oluşturun.");
+      return;
+    }
+
+    const btn = document.getElementById("exportBtn");
+    const origText = btn.textContent;
+    btn.textContent = "⏳ Hazırlanıyor...";
+    btn.disabled = true;
+
+    try {
+      const res = await fetch("/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: uploadedFilename,
+          il_col: ilCol,
+          sayi_col: sayiCol,
+          color_scale: selectedColorScale,
+          label_mode: selectedLabelMode,
+          show_legend: document.getElementById("legendToggle").checked,
+          show_all_labels: document.getElementById("allLabelsToggle").checked,
+          bg_color: selectedBgColor,
+          text_color: selectedTextColor,
+          show_colorbar: document.getElementById("colorbarToggle").checked,
+          legend_text_color: selectedLegTextColor,
+          legend_bg_color: selectedLegBgColor,
+          format: fmt,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        showToast(err.error || "Dışa aktarma hatası.");
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `turkiye_proje_haritasi.${fmt}`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+      showToast(`${fmt.toUpperCase()} indirildi!`, "success");
+    } catch (e) {
+      showToast("Hata: " + e.message);
+    } finally {
+      btn.textContent = origText;
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>
